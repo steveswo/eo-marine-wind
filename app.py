@@ -6,75 +6,101 @@ import time
 from pipeline import run_analysis
 
 # 1. Page Configuration
-st.set_page_config(page_title="Restore Blue | NID Suite", layout="wide")
+st.set_page_config(page_title="EO for marine & energy", layout="wide")
 
-# 2. Session Memory for Table
+# 2. CSS: Custom Styling
+st.markdown("""
+    <style>
+        .block-container { padding-top: 1rem; padding-bottom: 2rem; }
+        [data-testid="stHeader"] { display: none; }
+        
+        /* Section 3: Make Metric Titles BIGGER than Values */
+        .metric-container {
+            text-align: center;
+            padding: 10px;
+            background-color: #f0f2f6;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        .metric-title {
+            font-size: 18px !important;
+            font-weight: bold;
+            color: #31333F;
+            margin-bottom: 0px;
+        }
+        .metric-value {
+            font-size: 16px !important;
+            color: #555;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 3. CACHING: makes app instant on reload
+@st.cache_data(show_spinner=False)
+def cached_analysis(bbox, site_name):
+    # This wrapper function saves the result
+    return run_analysis(bbox, site_name)
+
+# 4. Session Memory
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# 3. Header
-st.title("🌊 Restore Blue: Site Analysis")
-st.markdown("Nature-Inclusive Design (NID) Optimisation for Offshore Wind")
+# 5. Header
+st.title("🌊 EO for Marine and Energy") 
 
-# 4. Sidebar Selection
+# 6. Site Options
 site_options = {
     "Kish Bank": {"lat": 53.27, "lon": -5.95, "bbox": [-6.05, 53.15, -5.85, 53.38]},
     "Arklow Bank": {"lat": 52.85, "lon": -6.00, "bbox": [-6.10, 52.75, -5.90, 52.95]}
 }
 
-with st.sidebar:
-    st.header("📍 Location")
-    site = st.selectbox("Project Site", list(site_options.keys()))
+# 7. CONTROLS
+c_sel, c_btn1, c_btn2 = st.columns([2, 1, 1])
+with c_sel:
+    site = st.selectbox("Select Location", list(site_options.keys()), label_visibility="collapsed")
+with c_btn1:
     run_btn = st.button("🚀 Run Analysis", use_container_width=True)
-    
-    st.divider()
-    if st.button("🧹 Clear History"):
+with c_btn2:
+    if st.button("🧹 Clear History", use_container_width=True):
         st.session_state.history = []
         st.rerun()
 
-# 5. Advanced PyDeck Map
+st.divider()
+
+# 8. MAP & METADATA
+# Updated Metadata Text
+st.caption(f"Geodata created on 2026-01-21 | Data Source: Sentinel-2 L2A")
+
 target_lat = site_options[site]['lat']
 target_lon = site_options[site]['lon']
 map_df = pd.DataFrame([{'lat': target_lat, 'lon': target_lon, 'coords': f"{target_lat}, {target_lon}"}])
 
-layers = [
-    pdk.Layer("ScatterplotLayer", data=map_df, get_position=["lon", "lat"],
-              get_color=[0, 255, 128, 200], get_radius=800),
-    pdk.Layer("TextLayer", data=map_df, get_position=["lon", "lat"], get_text="coords",
-              get_size=18, get_color=[255, 255, 255], get_alignment_baseline="'bottom'", get_pixel_offset=[0, -20])
-]
-
 st.pydeck_chart(pdk.Deck(
     map_style=None,
-    initial_view_state=pdk.ViewState(latitude=target_lat, longitude=target_lon, zoom=10, pitch=45),
-    layers=layers
+    initial_view_state=pdk.ViewState(latitude=target_lat, longitude=target_lon, zoom=10, pitch=0),
+    layers=[
+        pdk.Layer("ScatterplotLayer", data=map_df, get_position=["lon", "lat"], get_color=[0, 255, 128, 200], get_radius=800),
+        pdk.Layer("TextLayer", data=map_df, get_position=["lon", "lat"], get_text="coords", get_size=18, get_color=[255, 255, 255], get_alignment_baseline="'bottom'", get_pixel_offset=[0, -20])
+    ],
+    height=350 
 ))
-st.write(f"📍 **{site}**") 
+st.write(f"📍 **Location: {site}**") 
 
-# 6. Analysis Logic
+# 9. ANALYSIS
 if run_btn:
     try:
         with st.spinner("Processing satellite data..."):
-            report_path, score, clarity, bng_val, depth, wind, dist = run_analysis(
+            # CALLING THE CACHED FUNCTION
+            report_path, score, clarity, bng_val, depth, wind, dist = cached_analysis(
                 site_options[site]['bbox'], site.replace(" ", "_")
             )
 
-        # Calculations for Table & UI
         bng_pct = f"{int(bng_val * 100)}%"
         est_credits = bng_val * 50 * 2.5
         
-        # Add to Site Comparison History
-        entry = {
-            "Site": site, 
-            "Feasibility": f"{score}/100", 
-            "Turbidity": f"{clarity:.2f}",
-            "Bio-Gain": bng_pct,
-            "Credits (t/yr)": f"{est_credits:.1f}"
-        }
+        entry = {"Site": site, "Feasibility": f"{score}/100", "Turbidity": f"{clarity:.2f}", "Bio-Gain": bng_pct, "Credits (t/yr)": f"{est_credits:.1f}"}
         if entry not in st.session_state.history:
             st.session_state.history.append(entry)
-
-        st.caption(f"Analysis generated on 2026-01-21 | Data Source: Sentinel-2 L2A via Element84")
 
         # --- 1. COMPLIANCE ---
         st.header("⚖️ 1. Compliance")
@@ -82,11 +108,14 @@ if run_btn:
         
         with c1:
             st.subheader("Maritime Area Consent ✅")
-            st.metric("Turbidity (NDTI)", f"{clarity:.3f}")
-            st.success(f"NDTI <0: water not polluted.  \n\nSun penetrates water to grow seagrass.")
+            # Combined Line: Turbidity (NDTI) : -0.29
+            st.markdown(f"<h4 style='margin-bottom:0;'>Turbidity (NDTI) : {clarity:.3f}</h4>", unsafe_allow_html=True)
+            st.success(f"NDTI < 0: Water not polluted.  \n\nSun penetrates water to grow seagrass.")
         
         with c2:
+            st.markdown("<br>", unsafe_allow_html=True)
             st.subheader("EU Habitats Directive ✅")
+            # Reduced gap below header implicitly by removing spacer
             st.success("No adverse effect.  \n\nSeagrass protect erosion on wind turbine base.")
 
         st.divider()
@@ -94,30 +123,69 @@ if run_btn:
         # --- 2. SUSTAINABLE FINANCE ---
         st.header("💰 2. Sustainable Finance")
         s1, s2 = st.columns(2)
-        with s1:
-            st.write("**High seabed vegetation**")
-            st.success("Site eligible for Sustainable Loans")
-            st.progress(int(bng_val * 100) if bng_val <= 1.0 else 100, text=f"Biodiversity Gain: {bng_pct}")
         
+        with s1:
+            st.subheader(f"Biodiversity Gain: {bng_pct}") # Header
+            st.write("High seabed vegetation") # Smaller, non-bold
+            st.progress(int(bng_val * 100) if bng_val <= 1.0 else 100)
+            st.success("Eligible for Sustainable Loans")
+            
         with s2:
-            st.metric("ESG Value", "High Carbon Capture")
-            st.success(f"Generate Carbon Credits  \nEstimated: {est_credits:.1f} tonnes / year")
+            st.subheader("ESG Value") # Header
+            st.write("High Carbon Capture") # Smaller, non-bold
+            st.success(f"Carbon Credits generated:  \n**{est_credits:.1f} tonnes / year**")
 
         st.divider()
 
         # --- 3. OFFSHORE FEASIBILITY ---
         st.header("🏗️ 3. Offshore Feasibility")
+        
         e1, e2, e3 = st.columns(3)
-        e1.metric("Wind Speed", f"{wind} m/s")
-        e2.metric("Depth", f"{depth} m")
-        e3.metric("Distance", f"{dist} km")
+        with e1:
+            st.markdown(f"""<div class="metric-container"><div class="metric-title">Wind Speed</div><div class="metric-value">{wind} m/s</div></div>""", unsafe_allow_html=True)
+        with e2:
+            st.markdown(f"""<div class="metric-container"><div class="metric-title">Seabed Depth</div><div class="metric-value">{depth} m</div></div>""", unsafe_allow_html=True)
+        with e3:
+            st.markdown(f"""<div class="metric-container"><div class="metric-title">Distance to Shore</div><div class="metric-value">{dist} km</div></div>""", unsafe_allow_html=True)
+
         st.warning(f"**Feasibility: {score}/100**") 
 
     except Exception as e:
         st.error(f"Error: {e}")
 
-# 7. SITE COMPARISON (Updated with New Columns)
+# 10. SITE COMPARISON
 if st.session_state.history:
     st.divider()
     st.subheader("📊 Site Comparison")
     st.table(st.session_state.history)
+
+# 11. SHAREABLE LINKS
+st.divider()
+st.subheader("🔗 Share Analysis")
+
+app_url = "https://eo-marine.streamlit.app"
+share_text = f"Check out this Offshore Wind & Biodiversity analysis for {site}:"
+
+# Create columns for the 1-click buttons
+sh1, sh2, sh3, sh4 = st.columns(4)
+
+with sh1:
+    # WhatsApp (api.whatsapp.com)
+    wa_link = f"https://api.whatsapp.com/send?text={share_text} {app_url}"
+    st.link_button("💬 WhatsApp", wa_link, use_container_width=True)
+
+with sh2:
+    # LinkedIn (linkedin.com/sharing/share-offsite)
+    li_link = f"https://www.linkedin.com/sharing/share-offsite/?url={app_url}"
+    st.link_button("🟦 LinkedIn", li_link, use_container_width=True)
+
+with sh3:
+    # Email (mailto:)
+    email_link = f"mailto:?subject=Offshore Wind Site Analysis&body={share_text} {app_url}"
+    st.link_button("✉️ Email", email_link, use_container_width=True)
+
+with sh4:
+    # Copy Link (Still useful as a backup)
+    if st.button("📋 Show Link", use_container_width=True):
+        st.code(app_url, language=None)
+        st.toast("Link displayed above!")
