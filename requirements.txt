@@ -1,0 +1,13 @@
+streamlit
+pystac-client
+rioxarray
+geopandas
+shapely
+matplotlib
+stackstac
+rasterio
+pyproj
+pandas
+numpy
+leafmap
+pydeck
