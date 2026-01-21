@@ -69,7 +69,7 @@ st.divider()
 
 # 8. MAP & METADATA
 # Updated Metadata Text
-st.caption(f"Geodata created on 2026-01-21 | Data Source: Sentinel-2 L2A")
+st.caption(f"Data Source: Sentinel-2 L2A")
 
 target_lat = site_options[site]['lat']
 target_lon = site_options[site]['lon']
@@ -161,17 +161,17 @@ if st.session_state.history:
 
 # 11. SHAREABLE LINKS
 st.divider()
-st.subheader("🔗 Share Analysis")
+st.subheader("🔗 Share")
 
 app_url = "https://eo-marine.streamlit.app"
-share_text = f"Check out this Offshore Wind & Biodiversity analysis for {site}:"
+share_text = f"EO for marine & renewable energy {site}:"
 
 # Create columns for the 1-click buttons
 sh1, sh2, sh3, sh4 = st.columns(4)
 
 with sh1:
     # WhatsApp (api.whatsapp.com)
-    wa_link = f"https://api.whatsapp.com/send?text={share_text} {app_url}"
+    wa_link = f"https://api.whatsapp.com/send?text= {app_url}"
     st.link_button("💬 WhatsApp", wa_link, use_container_width=True)
 
 with sh2:
@@ -181,11 +181,5 @@ with sh2:
 
 with sh3:
     # Email (mailto:)
-    email_link = f"mailto:?subject=Offshore Wind Site Analysis&body={share_text} {app_url}"
+    email_link = f"mailto:?subject=EO for Marine and Renewable Energy &body= {app_url}"
     st.link_button("✉️ Email", email_link, use_container_width=True)
-
-with sh4:
-    # Copy Link (Still useful as a backup)
-    if st.button("📋 Show Link", use_container_width=True):
-        st.code(app_url, language=None)
-        st.toast("Link displayed above!")
